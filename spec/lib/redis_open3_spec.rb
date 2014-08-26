@@ -5,7 +5,7 @@ describe RedisOpen3 do
   let(:conns) { RedisConn.method(:with) }
 
   describe '#popen3' do
-    it 'yields 3 redis enum objects and an array with their list uuids' do
+    it 'yields 3 redis enum objects and a hash with their list uuids' do
       ropen.open3 do |r_in, r_out, r_err, uuids|
         expect(uuids[RedisOpen3::IN_KEY]).to  eq r_in.list_name
         expect(uuids[RedisOpen3::OUT_KEY]).to eq r_out.list_name
@@ -33,6 +33,17 @@ describe RedisOpen3 do
         end
         expect(redis.exists(out_name)).to eq false
         expect(redis.exists(err_name)).to eq false
+      end
+    end
+
+    context 'an exception is raised' do
+      it 'sends fail to redis_in' do
+        expect {
+          ropen.open3 do |redis_in|
+            expect(redis_in).to receive(:fail)
+            raise 'fail'
+          end
+        }.to raise_error RuntimeError, 'fail'
       end
     end
   end
@@ -67,6 +78,17 @@ describe RedisOpen3 do
           expect(redis.exists(uuids[RedisOpen3::IN_KEY])).to eq true
         end
         expect(redis.exists(uuids[RedisOpen3::IN_KEY])).to eq false
+      end
+    end
+
+    context 'an exception is raised' do
+      it 'sends fail to redis_out' do
+        expect {
+          ropen.process3(uuids) do |_, redis_out|
+            expect(redis_out).to receive(:fail)
+            raise 'fail'
+          end
+        }.to raise_error RuntimeError, 'fail'
       end
     end
   end

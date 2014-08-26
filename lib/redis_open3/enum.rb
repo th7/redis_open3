@@ -1,9 +1,10 @@
 require 'redis'
-require 'redis_open3'
+require 'redis_open3/error'
 
 class RedisOpen3
   class Enum
     class TimeoutError < RedisOpen3::Error; end
+    class Error < RedisOpen3::Error; end
 
     include Enumerable
     attr_reader :list_name
@@ -11,6 +12,9 @@ class RedisOpen3
     # magic :(
     EOF = '90829c12-3ac3-4af9-aeb4-8b63d1cc1d23'
     EOF_REGX = /\A#{EOF}\z/
+
+    ERR = '7ce43256-a6ed-4890-9352-956ab8816dbd'
+    ERR_REGX = /\A#{ERR}\z/
 
     def initialize(list_name, opts={})
       @list_name = list_name
@@ -29,6 +33,7 @@ class RedisOpen3
     def each(&block)
       Enumerator.new do |y|
         until (line = pop.chomp) =~ EOF_REGX
+          raise Error, "Received error signal." if line =~ ERR_REGX
           y << line
         end
       end.each(&block)
@@ -36,6 +41,10 @@ class RedisOpen3
 
     def delete
       @redis.del(list_name)
+    end
+
+    def fail
+      push(ERR)
     end
 
     private

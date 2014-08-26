@@ -63,9 +63,30 @@ describe RedisOpen3::Enum do
     end
   end
 
+  describe '#fail' do
+    let(:err) { RedisOpen3::Enum::ERR }
+
+    it 'adds the ERR uuid to the redis list' do
+      RedisConn.with do |redis|
+        expect {
+          enum.fail
+        }.to change {
+          redis.lpop(list_name)
+        }.from(nil).to(err)
+      end
+    end
+  end
+
   context 'timeout' do
     it 'raises a timeout error if the timeout expires' do
       expect { enum.each.to_a }.to raise_error(RedisOpen3::Enum::TimeoutError)
+    end
+  end
+
+  context 'when an error signal is sent' do
+    it 'raises a command failed error' do
+      RedisConn.with { |redis| redis.lpush(enum.list_name, RedisOpen3::Enum::ERR)}
+      expect { enum.each.to_a }.to raise_error(RedisOpen3::Enum::Error)
     end
   end
 end

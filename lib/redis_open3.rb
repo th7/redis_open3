@@ -1,9 +1,7 @@
-require "redis_open3/version"
-require 'redis'
+require 'redis_open3/version'
+require 'redis_open3/enum'
 
 class RedisOpen3
-  class Error < StandardError; end
-
   IN_KEY  = 'redis_open3_in'
   OUT_KEY = 'redis_open3_out'
   ERR_KEY = 'redis_open3_err'
@@ -17,11 +15,14 @@ class RedisOpen3
     with_enums(generated_uuids) do |redis_in, redis_out, redis_err, uuids|
       begin
         yield redis_in, redis_out, redis_err, uuids
+      rescue Exception => e
+        redis_in.fail
+        raise e
       ensure
-        redis_in.close
         redis_out.delete
         redis_err.delete
       end
+      redis_in.close
     end
   end
 
@@ -30,13 +31,14 @@ class RedisOpen3
       begin
         yield redis_in, redis_out, redis_err
       rescue Exception => e
+        redis_out.fail
         ([e.inspect] + e.backtrace).each { |row| redis_err << row }
         raise e
       ensure
         redis_in.delete
-        redis_out.close
         redis_err.close
       end
+      redis_out.close
     end
   end
 
