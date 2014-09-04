@@ -2,7 +2,8 @@ require 'redis_open3/enum'
 
 describe RedisOpen3::Enum do
   let(:list_name) { 'redis_open3:redis_enum:test_list' }
-  let(:enum) { RedisOpen3::Enum.new(list_name, redis: RedisConn.conn, timeout: 1) }
+  let(:timeout) { 1 }
+  let(:enum) { RedisOpen3::Enum.new(list_name, redis: RedisConn.conn, timeout: timeout) }
   let(:eof) { RedisOpen3::Enum::EOF }
 
   after { enum.delete }
@@ -17,6 +18,16 @@ describe RedisOpen3::Enum do
         }.from(nil).to('test_item')
       end
     end
+
+    it 'resets the ttl' do
+      RedisConn.with do |redis|
+        expect {
+          enum << 'test_item'
+        }.to change {
+          redis.ttl(list_name).to_i
+        }.from(-1).to(be > timeout)
+      end
+    end
   end
 
   describe '#close' do
@@ -27,6 +38,16 @@ describe RedisOpen3::Enum do
         }.to change {
           redis.lpop(list_name)
         }.from(nil).to(eof)
+      end
+    end
+
+    it 'resets the ttl' do
+      RedisConn.with do |redis|
+        expect {
+          enum.close
+        }.to change {
+          redis.ttl(list_name).to_i
+        }.from(-1).to(be > timeout)
       end
     end
   end
@@ -47,6 +68,19 @@ describe RedisOpen3::Enum do
 
       found_items = enum.each.to_a
       expected_items.each_with_index { |item, i| expect(found_items[i]).to eq item }
+    end
+
+    it 'resets the ttl' do
+      RedisConn.with do |redis|
+        redis.rpush(list_name, 'junk')
+        redis.rpush(list_name, eof)
+        redis.persist(list_name)
+
+        expect(redis.ttl(list_name)).to eq -1
+        enum.each do |item|
+          expect(redis.ttl(list_name).to_i).to be > timeout
+        end
+      end
     end
   end
 
@@ -73,6 +107,16 @@ describe RedisOpen3::Enum do
         }.to change {
           redis.lpop(list_name)
         }.from(nil).to(err)
+      end
+    end
+
+    it 'resets the ttl' do
+      RedisConn.with do |redis|
+        expect {
+          enum.fail
+        }.to change {
+          redis.ttl(list_name).to_i
+        }.from(-1).to(be > timeout)
       end
     end
   end

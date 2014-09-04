@@ -51,10 +51,13 @@ class RedisOpen3
 
     def push(string)
       @redis.rpush(list_name, string)
+      @redis.expire(list_name, @timeout + 10)
     end
 
     def pop
-      if popped = @redis.blpop(list_name, @timeout)
+      popped = @redis.blpop(list_name, @timeout)
+      @redis.expire(list_name, @timeout + 10)
+      if popped
         popped.last
       else
         raise TimeoutError, "Timeout of #{@timeout.inspect} seconds expired on list_name #{list_name.inspect}."
